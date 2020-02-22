@@ -132,14 +132,16 @@ def main():
 
     # if not args provided, print usage
     if len(args) < 2:
+        # we need at least 3 arguments to work
         print_usage()
         sys.exit(1)
 
     if args[1] == 'help':
+        # this is just a small helper so we dont always error on the usage msg
         print_usage()
         sys.exit(0)
 
-    # create a client
+    # create a client here so help wont ask for API keys
     c = Client()
 
     # do search
@@ -149,9 +151,11 @@ def main():
             print('Please specify a search term')
             sys.exit(10)
 
+        # search with a query
         if len(args) == 3:
             c.search_q(args[2])
 
+        # search with lon, lat and radius
         elif len(args) == 5:
             c.search_loc(args[2], args[3], args[4])
 
@@ -160,6 +164,7 @@ def main():
             sys.exit(1)
 
     elif args[1] == 'id':
+        # fetch data for a specific id
         if len(args) < 3:
             print('Please specify a bike point id')
             sys.exit(12)
