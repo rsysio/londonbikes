@@ -135,6 +135,10 @@ def main():
         print_usage()
         sys.exit(1)
 
+    if args[1] == 'help':
+        print_usage()
+        sys.exit(0)
+
     # create a client
     c = Client()
 
