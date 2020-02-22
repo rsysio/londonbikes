@@ -1,0 +1,171 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import requests
+
+
+class Client:
+    endpoint = 'https://api.tfl.gov.uk/BikePoint'
+    headers = {'content-type': 'application/json'}
+
+    def __init__(self):
+
+        self.app_id = os.environ.get('TFL_APP_ID', None)
+        self.api_key = os.environ.get('TFL_API_KEY', None)
+
+        if not self.app_id or not self.api_key:
+            print('{}\n{}\n{}'.format(
+                'Please provide an App Id and an API Key',
+                'export TFL_APP_ID=<your app id>',
+                'export TFL_API_KEY=<your api key>'
+            ))
+            sys.exit(256)
+
+    def id(self, id):
+        # Gets the bike point with the given id
+
+        # example URL
+        # https://api.tfl.gov.uk/BikePoint/BikePoints_50
+        url = self.endpoint + '/' + id
+        output_str = '{:<52}{:<12}{:<12}{:<16}{:<16}'
+
+        params = {
+            'app_id': self.app_id,
+            'app_key': self.api_key
+        }
+
+        resp = fetch(url, self.headers, params)
+        if resp.status_code != 200:
+            print('Bike point id {} not recognised'.format(id))
+            sys.exit(13)
+
+        res = resp.json()
+
+        bike_point = {
+            'commonName': res['commonName'],
+            'lat': res['lat'],
+            'lon': res['lon']
+        }
+
+        for i in res['additionalProperties']:
+            if i['key'] == 'NbBikes':
+                bike_point['num_bikes'] = i['value']
+            if i['key'] == 'NbEmptyDocks':
+                bike_point['empty_docks'] = i['value']
+
+        print(output_str.format('Name', 'Latitude', 'Longitude', 'Num Bikes', 'Empty Docks'))
+        print(output_str.format(bike_point['commonName'], bike_point['lat'], bike_point['lon'], bike_point['num_bikes'],
+                                bike_point['empty_docks']))
+
+    def search_q(self, query):
+        # Search for bike stations by their name
+
+        # example URL
+        # https://api.tfl.gov.uk/BikePoint/Search?query=east
+        url = self.endpoint + '/Search'
+        output_str = '{:<16}{:<52}{:<12}{:<12}'
+
+        params = {
+            'query': query,
+            'app_id': self.app_id,
+            'app_key': self.api_key
+        }
+
+        resp = fetch(url, self.headers, params)
+        res = resp.json()
+
+        print(output_str.format('Id', 'Name', 'Latitude', 'Longitude'))
+
+        for i in res:
+            print(output_str.format(i['id'], i['commonName'], i['lat'], i['lon']))
+
+    def search_loc(self, lat, lon, radius):
+        # search bike points by lon/lat/distance radius
+        # https://www.rubydoc.info/github/LukeHackett/tfl_api_client/TflApi/Client/BikePoint
+
+        url = self.endpoint
+        output_str = '{:<16}{:<52}{:<12}{:<12}'
+
+        params = {
+            'lat': lat,
+            'lon': lon,
+            'radius': radius,
+            'app_id': self.app_id,
+            'app_key': self.api_key
+        }
+
+        resp = fetch(url, self.headers, params)
+        if resp.status_code != 200:
+            print('The search request is invalid')
+            sys.exit(11)
+        res = resp.json()
+
+        print(output_str.format('Id', 'Name', 'Latitude', 'Longitude'))
+        for i in res['places']:
+            print(output_str.format(i['id'], i['commonName'], i['lat'], i['lon']))
+
+
+def fetch(url, headers, params):
+
+    try:
+        resp = requests.get(url=url, headers=headers, params=params)
+    except requests.exceptions.RequestException as e:
+        print('Failed to get data from TFL')
+        sys.exit(1)
+
+    return resp
+
+
+def print_usage():
+    usage_text = '''
+Usage:​
+londonbikes search <search_string>​
+londonbikes search <latitude> <longitude> <radius_in_metres>​
+londonbikes id <bike_point_id>
+'''
+    print(usage_text)
+
+
+def main():
+    args = sys.argv
+
+    # if not args provided, print usage
+    if len(args) < 2:
+        print_usage()
+        sys.exit(1)
+
+    # create a client
+    c = Client()
+
+    # do search
+    if args[1] == 'search':
+
+        if len(args) < 3:
+            print('Please specify a search term')
+            sys.exit(10)
+
+        if len(args) == 3:
+            c.search_q(args[2])
+
+        elif len(args) == 5:
+            c.search_loc(args[2], args[3], args[4])
+
+        else:
+            print_usage()
+            sys.exit(1)
+
+    elif args[1] == 'id':
+        if len(args) < 3:
+            print('Please specify a bike point id')
+            sys.exit(12)
+
+        c.id(args[2])
+
+    else:
+        print_usage()
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
